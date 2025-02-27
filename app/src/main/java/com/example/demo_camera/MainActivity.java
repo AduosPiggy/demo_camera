@@ -1,6 +1,7 @@
 package com.example.demo_camera;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
@@ -44,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private Size mImageDimension;
     private static final String TAG = "CameraDemo";
 
+    /**不建议打开 saveImage(bytes),帧数据占用内存空间过多 */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,6 +54,12 @@ public class MainActivity extends AppCompatActivity {
         mTextureView = findViewById(R.id.textureView);
         Button captureButton = findViewById(R.id.captureButton);
 
+        // 申请相机和写权限
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 200);
+        }
+        Log.e(TAG, "Requested permissions: CAMERA + PERMISSION_GRANTED");
         captureButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -59,11 +67,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 申请相机权限
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 200);
-        }
+
     }
 
     @Override
@@ -97,7 +101,8 @@ public class MainActivity extends AppCompatActivity {
     private void openCamera(int width, int height) {
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
-            String cameraId = manager.getCameraIdList()[0];
+            String[] cameraIds = manager.getCameraIdList();
+            String cameraId = cameraIds[0];
             mImageDimension = new Size(640, 480); // 选择合适的图片尺寸
             mImageReader = ImageReader.newInstance(mImageDimension.getWidth(), mImageDimension.getHeight(), ImageFormat.JPEG, 1);
             mImageReader.setOnImageAvailableListener(reader -> {
@@ -105,12 +110,15 @@ public class MainActivity extends AppCompatActivity {
                 ByteBuffer buffer = image.getPlanes()[0].getBuffer();
                 byte[] bytes = new byte[buffer.remaining()];
                 buffer.get(bytes);
-                saveImage(bytes);
+//                saveImage(bytes);
                 image.close();
             }, null);
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                return;
+
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ||
+                    ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 200);
             }
+            Log.e(TAG, "Requested permissions: CAMERA + PERMISSION_GRANTED");
             manager.openCamera(cameraId, stateCallback, null);
         } catch (CameraAccessException e) {
             Log.e(TAG, "Camera access exception: " + e.getMessage());
